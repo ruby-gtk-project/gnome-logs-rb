@@ -1,0 +1,104 @@
+GNOME Logs — Ruby GTK4 port
+===========================
+
+A log viewer for the systemd journal, ported from the original C/GTK4
+implementation to Ruby using the ruby-gnome gtk4 and adwaita bindings.
+
+https://apps.gnome.org/Logs/
+
+
+Running
+-------
+
+    nix run .
+
+or, from a source checkout:
+
+    nix develop
+    ruby -Ilib bin/gnome-logs
+
+The flake pins every gem through gemset.nix, so no network access or `bundle
+install` is needed. To regenerate it after changing the Gemfile:
+
+    nix develop .#bundle -c bundle lock
+    nix develop .#bundle -c bundix
+
+
+Requirements
+------------
+
+GTK 4, libadwaita, and a `journalctl` on PATH. The package prefers the host's
+journalctl (a journal viewer should match the host's journald) and falls back
+to the systemd in the closure.
+
+
+What changed from the C version
+-------------------------------
+
+The port keeps the behaviour and drops the machinery that only existed to work
+around C and libsystemd constraints.
+
+  * Journal access goes through `journalctl --output=json` rather than
+    libsystemd, because Ruby has no libsystemd binding. journalctl's match
+    semantics (OR within a field, AND across fields) are the same ones
+    gl_query_to_string built by hand, so the category filters translate
+    directly.
+
+  * GlJournalModel is gone. It existed to page a journal cursor through idle
+    callbacks; one batch read with a row cap replaces roughly 1400 lines.
+
+  * The row compression system (grouping repeated adjacent entries behind an
+    expander) is not ported. Entries that share a timestamp still collapse
+    their time column, which is the part of it users actually see.
+
+  * The message catalog is dumped once and parsed into subject / defined-by /
+    support / documentation, instead of picking each entry apart with strtok.
+
+  * Detail rows are always shown rather than hidden when their field is empty,
+    so the popover does not resize as you move between entries.
+
+  * Priorities render as names (Warning, Error…) instead of the raw number the
+    C version left as a TODO.
+
+  * The search popover uses Gtk::DropDown rather than the deprecated
+    GtkTreeView, and a custom range covers whole days instead of pairing each
+    calendar with hour and minute spin buttons.
+
+  * The Alerts, Starred, Updates and Usage categories are not ported: they are
+    hidden, unimplemented rows upstream.
+
+  * The sort-order GSetting is a string with explicit choices rather than an
+    enum generated from the C headers.
+
+
+Layout
+------
+
+    bin/gnome-logs             source-checkout entry point
+    lib/gnome_logs/main.rb     installed entry point
+    lib/gnome_logs/
+      application.rb           app actions, accelerators, about dialog
+      window.rb                window, warning bar, export
+      event_toolbar.rb         header bar, boot selector, primary menu
+      event_view_list.rb       sidebar + log list, reload pipeline
+      event_view_row.rb        one log row
+      event_view_detail.rb     the detail popover
+      category_list.rb         sidebar
+      search_popover.rb        search field / type / range options
+      shortcuts_window.rb      keyboard shortcuts window
+      journal.rb               journalctl backend
+      journal_entry.rb         one entry
+      query.rb                 what to read and how to filter it
+      category.rb              the six categories
+      catalog.rb               systemd message catalog
+      settings.rb              org.gnome.Logs GSettings
+
+
+Style
+-----
+
+The Ruby follows the declarative memoized-widget style: every widget is a
+memoized method, all configuration lives in that method's tap block, assembly
+happens in a single build method whose nesting mirrors the widget tree, and
+the app starts with one expression. `rubocop` is clean; .rubocop.yml documents
+which defaults the style deliberately overrides.

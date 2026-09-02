@@ -1,0 +1,42 @@
+# The house style this port follows (declarative memoized widgets, everything
+# configured inside tap blocks, a single build method per component) is at odds
+# with a handful of RuboCop's size and style defaults. Those are relaxed here;
+# everything else is left on.
+AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+
+# build methods are one declarative widget tree; splitting them would hide the
+# hierarchy the style exists to expose.
+Metrics/AbcSize:
+  Enabled: false
+Metrics/BlockLength:
+  Enabled: false
+Metrics/BlockNesting:
+  Enabled: false
+Metrics/MethodLength:
+  Enabled: false
+Metrics/ClassLength:
+  Enabled: false
+Metrics/CyclomaticComplexity:
+  Enabled: false
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+
+# Widget methods with no configuration are written as endless one-liners.
+Style/AccessorGrouping:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Naming/MethodParameterName:
+  Enabled: false
+
+# The style forbids `return`; conditions are expressed as wrapped bodies or
+# `.then { |x| if x ... }` instead of guard clauses.
+Style/GuardClause:
+  Enabled: false

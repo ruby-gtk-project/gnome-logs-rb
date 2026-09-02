@@ -1,0 +1,15 @@
+# List of source files containing translatable strings.
+# Please keep this file sorted alphabetically.
+data/org.gnome.Logs.desktop
+data/org.gnome.Logs.gschema.xml
+lib/gnome_logs/application.rb
+lib/gnome_logs/category.rb
+lib/gnome_logs/category_list.rb
+lib/gnome_logs/event_toolbar.rb
+lib/gnome_logs/event_view_detail.rb
+lib/gnome_logs/event_view_list.rb
+lib/gnome_logs/journal_entry.rb
+lib/gnome_logs/query.rb
+lib/gnome_logs/search_popover.rb
+lib/gnome_logs/shortcuts_window.rb
+lib/gnome_logs/window.rb

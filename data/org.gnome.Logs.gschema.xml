@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gnome-logs">
+  <!-- sort-order was an enum generated from the C headers by gl-enums; the
+       Ruby port has no such generation step, so it is spelled out as a string
+       with explicit choices instead. The stored values are unchanged. -->
+  <schema id="org.gnome.Logs" path="/org/gnome/logs/">
+    <key name="ignore-warning" type="b">
+      <summary>Ignore warning</summary>
+      <description>Whether to ignore the warning that says you don’t have sufficient permission to view logs. If ignored, the warning won’t show up again.</description>
+      <default>false</default>
+    </key>
+    <key name="sort-order" type="s">
+      <choices>
+        <choice value="ascending-time"/>
+        <choice value="descending-time"/>
+      </choices>
+      <summary>How to sort list rows in the event view list</summary>
+      <description>Sort list rows in ascending or descending order for the selected type</description>
+      <default>'descending-time'</default>
+    </key>
+  </schema>
+</schemalist>

@@ -1,0 +1,28 @@
+/* Theme overrides for the Ruby port.
+ *
+ * The C version generated the monospace rule at run time from the
+ * org.gnome.desktop.interface monospace-font-name GSetting; a plain
+ * font-family declaration gets the same result without the GSettings round
+ * trip. The compressed-row classes are gone with the row compression system.
+ */
+
+.event-monospace {
+    font-family: monospace;
+}
+
+.event-time {
+    font-size: small;
+}
+
+.event {
+    padding: 5px;
+}
+
+.detail-field-label {
+    padding-left: 3px;
+}
+
+.popover-activated-row {
+    color: @accent_fg_color;
+    background-color: @accent_bg_color;
+}
