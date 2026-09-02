@@ -114,10 +114,12 @@ module GnomeLogs
       end
     end
 
-    # Gtk::Calendar reports a date and nothing finer, so a custom range covers
-    # whole days: from the start of the first to the end of the last. Upstream
-    # pairs each calendar with hour and minute spin buttons; the extra
-    # precision is not worth four more widgets here.
+    # A custom range covers whole days: from the start of the first to the end
+    # of the last. Gtk::Calendar only lets the user pick a day -- its #date
+    # does carry a time, but that is just the time of day the widget happened
+    # to be constructed, so it is discarded. Upstream pairs each calendar with
+    # hour and minute spin buttons; the extra precision is not worth four more
+    # widgets here.
     def apply_custom_range
       query.range = :custom_range
       query.start_time = midnight(start_calendar)
