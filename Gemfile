@@ -10,3 +10,5 @@ gem 'gtk4'
 group :development do
   gem 'rubocop', require: false
 end
+
+gem "gem_kit"

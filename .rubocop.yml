@@ -40,3 +40,35 @@ Naming/MethodParameterName:
 # `.then { |x| if x ... }` instead of guard clauses.
 Style/GuardClause:
   Enabled: false
+
+# --- shared house cops (cops/) ---
+require:
+  - ./cops/begin_block_assignment.rb
+  - ./cops/multiline_method_arguments.rb
+  - ./cops/no_conditional_assignment.rb
+  - ./cops/no_console_logging.rb
+  - ./cops/no_modifier_if.rb
+  - ./cops/no_return.rb
+  - ./cops/use_tap.rb
+
+Local/BeginBlockAssignment:
+  Enabled: true
+
+Local/NoConditionalAssignment:
+  Enabled: true
+
+Local/NoModifierIf:
+  Enabled: true
+
+Local/NoReturn:
+  Enabled: true
+
+Local/NoConsoleLogging:
+  Enabled: true
+
+Local/UseTap:
+  Enabled: true
+
+Local/MultilineMethodArguments:
+  Enabled: true
+  MaxArguments: 3
