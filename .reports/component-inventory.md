@@ -29,7 +29,7 @@ subclass and a `.ui` template, and both halves map to one `lib/*.rb`.
 | `src/gl-journal-model.{c,h}` | folded into `event_view_list.rb` | model | deliberate merge |
 | (`gl-query.c`/`.h` — query builder, inlined upstream) | `lib/gnome_logs/query.rb` | model | yes |
 | `data/org.gnome.Logs.gschema.xml` | `lib/gnome_logs/settings.rb` | GSettings | yes |
-| `src/gl-util.{c,h}` | **`lib/gnome_logs/util.rb`** | time formatting helpers | **no** |
+| `src/gl-util.{c,h}` | `lib/gnome_logs/util.rb` | time formatting helpers | yes |
 | (catalog lookup, `sd_journal_get_catalog`) | `lib/gnome_logs/catalog.rb` | model | yes |
 | `po/` + `data/*.ui` gettext | `lib/gnome_logs/translation.rb` | i18n | yes |
 
@@ -83,7 +83,7 @@ with `g_menu_prepend_section (boot_menu, _("Boot"), …)` and `win.view-boot`
 radio items.
 
 **Gaps**
-- `title-menu-button` and `flat` on the boot button (and the whole `.title-menu-button` block in `style.css` / `style-hc.css`) are unused by the port.
+- ~~`title-menu-button`~~ applied as of `ed00940`; `flat` on the boot button is still missing.
 - The port's primary menu is one flat section; upstream has two, so the separator between "New Window" and the rest is lost.
 - The boot chooser is a `Gtk::ListBox` in a popover rather than a `Gio::Menu` of `win.view-boot` radio items, and has no `_("Boot")` section header.
 - `caption` CSS class on the boot subtitle label replaced with `subtitle`.
@@ -225,43 +225,51 @@ Watches `org.gnome.desktop.interface` `monospace-font-name` and regenerates a
 `--version` command-line option.
 
 **Gaps**
-- No `monospace-font-name` watcher, so `.event-monospace` — a class the port applies to five labels — is never defined anywhere. The log list is not monospaced.
+- No `monospace-font-name` watcher. `.event-monospace` is now defined as a static rule in `data/style.css` and applied to three labels, so the list is monospaced, but it does not follow the desktop monospace font setting.
 - No `sort-order` watcher.
 - No `--version` option.
 - About dialog: `designers`, `developers`, `translator-credits`, `copyright`, `issue-url` all missing; `comments` is an addition not upstream.
 - `app.quit` / `<Primary>q` and `win.show-help-overlay` / `<Primary>question` are **additions** beyond upstream.
 
-### `src/gl-util.c` — no port file
+### `src/gl-util.c` — `lib/gnome_logs/util.rb`
 
 12-hour and 24-hour time formats (`_("%l:%M:%S %p")` … `_("%b %e %Y %H:%M")`,
 12 translated format strings), the compressed-range format `_("%s – %s")`, and
 `GlUtilClockFormat` read from `org.gnome.desktop.interface` `clock-format`.
 `tests/test-gl-util.c` exercises it upstream.
 
-**Gap**: no `lib/gnome_logs/util.rb`. The port uses `strftime('%X')`
-throughout, so the clock-format setting is ignored, the date-bearing formats
-("Nov 2 14:03") never appear, and 12 translatable strings are unreferenced.
+**Ported** in `ed00940`: all six format cases, the boot time span, the uid
+lookup, the journal storage probes and the system/user readability checks, with
+GLib's U+2007 padding of `%e`/`%l` reproduced. `sd_id128_get_machine` is
+unavailable without libsystemd, so the machine id is read from
+`/etc/machine-id`. The row, the list and the detail popover now render through
+`Util` instead of `strftime('%X')`.
+
+**Remaining gap**: the compressed-range format `_("%s – %s")` has no caller,
+because compressed entry groups are still unported.
 
 ## Non-widget data parity
 
 | Upstream | Port | Status |
 |---|---|---|
 | `data/org.gnome.Logs.gschema.xml` | present | yes |
-| `data/style.css` | present | yes, but `.event-monospace`, `.event`, `.compressed-*`, `.popover-activated-row`, `.title-menu-button` rules are dead |
-| `data/style-hc.css` | **absent** | high-contrast stylesheet not ported or loaded |
+| `data/style.css` | present | yes; `.event-monospace` and `.title-menu-button` now have callers, `.event`, `.compressed-*` and `.popover-activated-row` are still dead |
+| `data/style-hc.css` | present | yes — `application.rb` adds/removes the provider on `Adwaita::StyleManager` `notify::high-contrast` |
 | `data/org.gnome.Logs.gresource.xml` | n/a | not needed (no `.ui` by design) |
-| `data/org.gnome.Logs.metainfo.xml.in` | **absent** | |
-| `data/org.gnome.Logs.service.in` | **absent** | D-Bus activation |
+| `data/org.gnome.Logs.metainfo.xml` | present | yes |
+| `data/org.gnome.Logs.service` | present | yes — pairs with `DBusActivatable` in the desktop file |
 | `data/gnome-logs.xml` (man page) | present | yes |
 | `data/icons/` | present | yes |
 | `po/` (75 catalogues + LINGUAS + POTFILES.in) | present | yes |
 | `help/` (user docs, 24 languages) | present | yes |
-| `tests/test-gl-util.c` | `spec/` is **empty** | no tests at all |
+| `tests/test-gl-util.c` | `spec/gnome_logs/util_spec.rb` | yes — same six vectors and fixed comparison time; no other spec exists |
 
 ## Summary of work remaining
 
-1. `lib/gnome_logs/util.rb` — clock-format-aware time formatting (12 strings) and the `%s – %s` range format.
-2. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.
+*Updated after `ed00940` (gl-util, style-hc.css, metainfo, D-Bus service, the
+first spec file). Items 1, 8 and the "no tests at all" line are now closed.*
+
+1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.
 3. `.event-monospace` CSS from `monospace-font-name`, plus the `event` class on rows.
 4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.
 5. Sort-order plumbing: `sort-order` watcher → window → event view list.
