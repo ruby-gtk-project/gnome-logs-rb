@@ -1,0 +1,19 @@
+/* High-contrast theme overrides for the Ruby port.
+ *
+ * GTK loads style-hc.css out of an application's resource base path by
+ * itself; this port keeps its stylesheets on disk, so GnomeLogs::Application
+ * adds and removes this provider as Adwaita's style manager reports the
+ * high-contrast setting.
+ *
+ * The boot menu button carries the title-menu-button class the C version's
+ * header bar template sets, so the one rule upstream ships still applies to
+ * the widget it was written for. The layout rules upstream pairs with it in
+ * style.css are not ported: the boot button sits beside the title here
+ * rather than being the title widget, so it needs no negative margins.
+ */
+
+.title-menu-button > button:hover,
+.title-menu-button > button:active,
+.title-menu-button > button:checked {
+    box-shadow: inset 1px 0 @borders, inset -1px 0 @borders;
+}

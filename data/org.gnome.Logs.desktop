@@ -9,4 +9,4 @@ Type=Application
 Categories=GTK;System;Monitor;
 Keywords=log;journal;systemd;
 StartupNotify=true
-DBusActivatable=false
+DBusActivatable=true

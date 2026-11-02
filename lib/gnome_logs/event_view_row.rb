@@ -6,14 +6,15 @@ module GnomeLogs
   # the message, and the time on the trailing edge. Activating the row pops up
   # the detail popover, as in gl_event_view_list_on_row_activated.
   class EventViewRow
-    def initialize(entry:, catalog:, show_category:, size_group:)
+    def initialize(entry:, catalog:, show_category:, size_group:, clock_format:)
       @entry = entry
       @catalog = catalog
       @show_category = show_category
       @size_group = size_group
+      @clock_format = clock_format
     end
 
-    attr_reader :entry, :catalog, :show_category, :size_group
+    attr_reader :entry, :catalog, :show_category, :size_group, :clock_format
 
     def build
       @build ||= row.tap do |r|
@@ -44,7 +45,7 @@ module GnomeLogs
     # GTK complains when the row they hang off is finalized.
     def dispose = detail_popover.unparent
 
-    def detail = @detail ||= EventViewDetail.new(entry, catalog)
+    def detail = @detail ||= EventViewDetail.new(entry, catalog, clock_format)
 
     def row = @row ||= Gtk::ListBoxRow.new.tap { |r| r.activatable = true }
 
@@ -86,8 +87,16 @@ module GnomeLogs
 
     # Entries that share a timestamp with the row above them leave the column
     # blank, so a burst of messages reads as one block.
+    def display_time
+      if entry.display_time_label
+        Util.timestamp_to_display(entry.timestamp_usec, Time.now, clock_format)
+      else
+        ''
+      end
+    end
+
     def time_label
-      @time_label ||= Gtk::Label.new(entry.display_time_label ? entry.time.strftime('%X') : '').tap do |lbl|
+      @time_label ||= Gtk::Label.new(display_time).tap do |lbl|
         lbl.halign = :end
         lbl.hexpand = true
         lbl.xalign = 1

@@ -93,10 +93,13 @@ module GnomeLogs
       end
     end
 
+    # The title-menu-button class is the one the C version's header bar
+    # template sets on this button; data/style-hc.css styles it.
     def boot_button
       @boot_button ||= Gtk::MenuButton.new.tap do |btn|
         btn.icon_name = 'pan-down-symbolic'
         btn.tooltip_text = t('Choose the boot from which to view logs')
+        btn.add_css_class('title-menu-button')
       end
     end
 

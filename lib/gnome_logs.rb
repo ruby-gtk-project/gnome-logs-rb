@@ -22,5 +22,6 @@ module GnomeLogs
   autoload :SearchPopover, 'gnome_logs/search_popover'
   autoload :Settings, 'gnome_logs/settings'
   autoload :ShortcutsWindow, 'gnome_logs/shortcuts_window'
+  autoload :Util, 'gnome_logs/util'
   autoload :Window, 'gnome_logs/window'
 end

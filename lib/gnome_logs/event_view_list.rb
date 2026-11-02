@@ -85,14 +85,23 @@ module GnomeLogs
       end
     end
 
-    # Ports the display_time_label flag: an entry repeats the time column only
-    # when it differs from the entry above it.
+    # Ports the display_time_label flag of gl_journal_model_fetch_more_entries:
+    # an entry repeats the time column only when the string it would show
+    # differs from the one the entry above it shows.
     def mark_time_labels(list)
-      list.each_with_index do |entry, index|
-        entry.display_time_label =
-          index.zero? || entry.time.strftime('%X') != list[index - 1].time.strftime('%X')
+      Time.now.then do |now|
+        list.each_with_index do |entry, index|
+          entry.display_time_label =
+            index.zero? || time_display(entry, now) != time_display(list[index - 1], now)
+        end
       end
     end
+
+    def time_display(entry, now) = Util.timestamp_to_display(entry.timestamp_usec, now, clock_format)
+
+    # The desktop clock format is read once per list rather than once per row,
+    # as the C version's cached priv->clock_format is.
+    def clock_format = @clock_format ||= Util.clock_format
 
     # Rows are looked up by list position rather than by widget identity, so
     # the mapping survives whatever wrapper object the bindings hand back.
@@ -110,7 +119,7 @@ module GnomeLogs
     def row_view_for(entry)
       EventViewRow.new(entry: entry, catalog: catalog,
                        show_category: query.category == Category.important,
-                       size_group: category_sizegroup)
+                       size_group: category_sizegroup, clock_format: clock_format)
     end
 
     def on_search_changed

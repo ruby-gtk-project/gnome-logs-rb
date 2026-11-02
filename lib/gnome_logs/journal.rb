@@ -9,12 +9,17 @@ module GnomeLogs
   # to journalctl's JSON output, which exposes the same fields and the same
   # match semantics.
   class Journal
-    FORMAT = '%Y-%m-%d %H:%M'
+    Boot = Struct.new(
+      :index,
+      :boot_id,
+      :first_time,
+      :last_time
+    ) do
+      # Util takes microseconds since the epoch, as
+      # gl_util_boot_time_to_display does.
+      def display_name = Util.boot_time_to_display(usec(first_time), usec(last_time))
 
-    Boot = Struct.new(:index, :boot_id, :first_time, :last_time) do
-      def display_name
-        format('%<from>s - %<to>s', from: first_time.strftime(FORMAT), to: last_time.strftime(FORMAT))
-      end
+      def usec(time) = (time.to_r * Util::USEC_PER_SECOND).to_i
     end
 
     def entries(query)
@@ -23,9 +28,12 @@ module GnomeLogs
 
     def boots
       read(['--list-boots', '--output=json']).map do |json|
-        Boot.new(json['index'], json['boot_id'],
-                 Time.at(json['first_entry'].to_i / 1_000_000.0),
-                 Time.at(json['last_entry'].to_i / 1_000_000.0))
+        Boot.new(
+          json['index'],
+          json['boot_id'],
+          Time.at(json['first_entry'].to_i / 1_000_000.0),
+          Time.at(json['last_entry'].to_i / 1_000_000.0)
+        )
       end
     end
 

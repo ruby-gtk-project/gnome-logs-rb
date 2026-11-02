@@ -2,6 +2,7 @@
 # Please keep this file sorted alphabetically.
 data/org.gnome.Logs.desktop
 data/org.gnome.Logs.gschema.xml
+data/org.gnome.Logs.metainfo.xml
 lib/gnome_logs/application.rb
 lib/gnome_logs/category.rb
 lib/gnome_logs/category_list.rb
@@ -12,4 +13,5 @@ lib/gnome_logs/journal_entry.rb
 lib/gnome_logs/query.rb
 lib/gnome_logs/search_popover.rb
 lib/gnome_logs/shortcuts_window.rb
+lib/gnome_logs/util.rb
 lib/gnome_logs/window.rb

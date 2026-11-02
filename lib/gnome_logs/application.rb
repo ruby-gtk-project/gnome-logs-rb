@@ -77,17 +77,45 @@ module GnomeLogs
     # The C version ships style.css in a GResource; here it is read from the
     # data directory, which the installed wrapper points at and which
     # otherwise sits next to the library in a source checkout.
+    #
+    # GTK picks style-hc.css out of an application's resource base path by
+    # itself, and nothing does that for a stylesheet on disk, so the
+    # high-contrast sheet follows the style manager's setting instead.
     def load_style
-      Gtk::CssProvider.new.tap do |provider|
-        provider.load(path: style_path)
-        Gtk::StyleContext.add_provider_for_display(
-          Gdk::Display.default, provider, Gtk::StyleProvider::PRIORITY_APPLICATION
-        )
+      add_provider(style_provider)
+
+      style_manager.tap do |manager|
+        manager.signal_connect('notify::high-contrast') { apply_high_contrast }
+      end
+
+      apply_high_contrast
+    end
+
+    def apply_high_contrast
+      if style_manager.high_contrast?
+        add_provider(high_contrast_provider)
+      else
+        Gtk::StyleContext.remove_provider_for_display(Gdk::Display.default, high_contrast_provider)
       end
     end
 
+    def add_provider(provider)
+      Gtk::StyleContext.add_provider_for_display(
+        Gdk::Display.default, provider, Gtk::StyleProvider::PRIORITY_APPLICATION
+      )
+    end
+
+    def provider_for(path)
+      Gtk::CssProvider.new.tap { |provider| provider.load(path: path) }
+    end
+
+    def style_provider = @style_provider ||= provider_for(style_path)
+    def high_contrast_provider = @high_contrast_provider ||= provider_for(high_contrast_style_path)
+    def style_manager = @style_manager ||= Adwaita::StyleManager.default
+
     def data_dir = ENV.fetch('GNOME_LOGS_DATA_DIR', File.expand_path('../../data', __dir__))
     def style_path = File.join(data_dir, 'style.css')
+    def high_contrast_style_path = File.join(data_dir, 'style-hc.css')
 
     def app = @app ||= Gtk::Application.new(ID, :default_flags)
   end

@@ -102,11 +102,36 @@ module GnomeLogs
     end
 
     # Ports gl_window_check_journal_access: warn when the journal cannot be
-    # read at all rather than silently showing an empty list.
+    # read at all rather than silently showing an empty list. journalctl being
+    # missing is a case the C version cannot have, since it links against
+    # libsystemd instead of shelling out.
     def check_journal_access
       if !journal.available?
         show_info(t('Unable to read system logs'))
       elsif event_view_list.entries.empty?
+        show_info(t('No logs available'))
+      else
+        check_journal_storage
+      end
+    end
+
+    # The storage-type switch of gl_window_check_journal_access: which journal
+    # files exist decides which of the three warnings applies.
+    def check_journal_storage
+      case Util.journal_storage_type
+      when :persistent
+        unless Util.can_read_system_journal?(:persistent)
+          show_info(t('Unable to read system logs'))
+        end
+
+        unless Util.can_read_user_journal?
+          show_info(t('Unable to read user logs'))
+        end
+      when :volatile
+        unless Util.can_read_system_journal?(:volatile)
+          show_info(t('Unable to read system logs'))
+        end
+      when :none
         show_info(t('No logs available'))
       end
     end

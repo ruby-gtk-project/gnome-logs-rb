@@ -23,12 +23,13 @@ module GnomeLogs
       ['Documentation', :documentation_label]
     ].freeze
 
-    def initialize(entry, catalog)
+    def initialize(entry, catalog, clock_format)
       @entry = entry
       @catalog = catalog
+      @clock_format = clock_format
     end
 
-    attr_reader :entry, :catalog
+    attr_reader :entry, :catalog, :clock_format
 
     def build
       @build ||= scrolled.tap do |sw|
@@ -48,7 +49,7 @@ module GnomeLogs
     def catalog_entry = @catalog_entry ||= catalog.entry_for(entry.catalog)
 
     def sender_label = @sender_label ||= value_label(entry.sender)
-    def time_label = @time_label ||= value_label(entry.time.strftime('%x %X'))
+    def time_label = @time_label ||= value_label(detailed_time)
     def message_label = @message_label ||= value_label(entry.message)
     def audit_label = @audit_label ||= value_label(entry.audit_session)
     def device_label = @device_label ||= value_label(entry.kernel_device)
@@ -56,6 +57,17 @@ module GnomeLogs
     def subject_label = @subject_label ||= value_label(catalog_entry.subject)
     def definedby_label = @definedby_label ||= value_label(catalog_entry.defined_by)
     def documentation_label = @documentation_label ||= value_label(catalog_entry.documentation)
+
+    # The detail view is the one place that shows seconds, as
+    # gl_event_view_detail_set_event asks for them.
+    def detailed_time
+      Util.timestamp_to_display(
+        entry.timestamp_usec,
+        Time.now,
+        clock_format,
+        show_second: true
+      )
+    end
 
     # The catalog spec says Support is a URI, so it is rendered as a link.
     def support_label
