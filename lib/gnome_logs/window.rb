@@ -49,9 +49,12 @@ module GnomeLogs
           end
         end
 
+        win.add_action(view_boot_action)
+
         win.help_overlay = shortcuts_window.build
         event_view_list.search_bar.key_capture_widget = win
 
+        watch_sort_order
         check_journal_access
       end
     end
@@ -159,6 +162,38 @@ module GnomeLogs
       query.start_time = boot.first_time
       query.end_time = boot.last_time
       event_view_list.reload
+    end
+
+    # Ports on_sort_order_changed: the C version watches the GSettings key at
+    # the application level and pushes the new order into every open window;
+    # here each window watches its own Settings instance, which GSettings
+    # still notifies for a key changed by any process.
+    def watch_sort_order
+      settings.settings&.signal_connect('changed::sort-order') { on_sort_order_changed }
+    end
+
+    def on_sort_order_changed
+      query.descending = settings.descending?
+      event_view_list.reload
+    end
+
+    # Ports the win.view-boot stateful radio action installed by GActionEntry
+    # actions[] in gl-window.c, which the header bar's boot GMenu targets.
+    # change-state (not activate) is where a stateful action commits its new
+    # value; activate alone would leave the action's own state unmoved.
+    def view_boot_action
+      @view_boot_action ||= Gio::SimpleAction.new(
+        'view-boot', GLib::VariantType.new('s'), GLib::Variant.new(default_boot_target)
+      ).tap do |action|
+        action.signal_connect('change-state') { |a, value| on_view_boot_changed(a, value) }
+      end
+    end
+
+    def default_boot_target = toolbar.boots_newest_first.first&.index.to_s
+
+    def on_view_boot_changed(action, value)
+      action.set_state(GLib::Variant.new(value))
+      journal.boots.find { |boot| boot.index.to_s == value }&.then { |boot| toolbar.select_boot(boot) }
     end
 
     def event_view_list

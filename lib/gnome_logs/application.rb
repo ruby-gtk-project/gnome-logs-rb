@@ -16,14 +16,18 @@ module GnomeLogs
       'win.export' => ['<Primary>e'],
       'app.help' => ['F1'],
       'app.new-window' => ['<Primary>n'],
-      'app.quit' => ['<Primary>q'],
       'win.show-help-overlay' => ['<Primary>question']
     }.freeze
+
+    DEVELOPERS = ['David King <davidk@gnome.org>', 'Jonathan Kang <jonathan121537@gmail.com>'].freeze
+    DESIGNERS = ['Jakub Steiner <jimmac@gmail.com>', 'Lapo Calamandrei <calamandrei@gmail.com>'].freeze
+    COPYRIGHT = "Copyright © 2013–2015 Red Hat, Inc.\nCopyright © 2014-2015 Jonathan Kang"
+    ISSUE_URL = 'https://gitlab.gnome.org/GNOME/gnome-logs/-/issues/'
 
     def build
       app.tap do |a|
         a.signal_connect('startup') do
-          %w[new-window help about quit].each do |name|
+          %w[new-window help about].each do |name|
             Gio::SimpleAction.new(name).tap do |action|
               action.signal_connect('activate') { public_send("on_#{name.tr('-', '_')}") }
               a.add_action(action)
@@ -42,7 +46,6 @@ module GnomeLogs
     def run = app.run([$PROGRAM_NAME, *ARGV])
 
     def on_new_window = Window.new(application: app).present
-    def on_quit = app.quit
 
     def on_help
       Gtk::UriLauncher.new(HELP_URI).tap do |launcher|
@@ -66,8 +69,13 @@ module GnomeLogs
         about.application_icon = ID
         about.version = VERSION
         about.developer_name = t('The GNOME Project')
+        about.developers = DEVELOPERS
+        about.designers = DESIGNERS
+        about.translator_credits = t('translator-credits')
+        about.copyright = COPYRIGHT
         about.license_type = Gtk::License::GPL_3_0
         about.website = 'https://apps.gnome.org/Logs/'
+        about.issue_url = ISSUE_URL
         about.comments = t('View and search logs')
         about.transient_for = app.active_window
         about.present

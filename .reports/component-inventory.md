@@ -62,20 +62,20 @@ help failure via `_("Failed To Open Help")`. `Gtk.FileDialog` save with initial
 name `_("log messages")`.
 
 **Gaps**
-- `win.view-boot` stateful radio action is not installed; the port selects boots through a plain callback, so the header-bar menu cannot show the selected boot as a radio item and nothing else can drive boot selection.
+- ~~`win.view-boot` stateful radio action is not installed~~ fixed this round: `Window#view_boot_action` is a stateful `s`-typed action, `change-state` commits the new boot and tells `EventToolbar` to update its label, and the header-bar menu is now the `Gio::Menu` described under `gl-eventtoolbar.c` below.
 - `_("Unable to read user logs")` is never shown — the port collapses both to the system-logs message.
-- `gl_window_set_sort_order` has no counterpart: the port reads `sort-order` once when building `Query` and never reacts to the key changing.
+- ~~`gl_window_set_sort_order` has no counterpart~~ fixed this round: `Window#watch_sort_order` connects `changed::sort-order` on the window's own `Gio::Settings` and reloads the list with the new order (at the window level, since there is no application-level journal/settings registry to push through here).
 
 ### `data/gl-eventtoolbar.ui` + `src/gl-eventtoolbar.c` — the header bar
 
 | Widget | × | CSS | Signals / actions | Port |
 |---|---:|---|---|---|
 | `Adw.HeaderBar` `headerbar` | 1 | — | — | yes |
-| `Gtk.MenuButton` `main_menu` (`open-menu-symbolic`, primary, "Main Menu") | 1 | — | menu → `primary-menu` | yes, but packed start, not end |
+| `Gtk.MenuButton` `main_menu` (`open-menu-symbolic`, primary, "Main Menu") | 1 | — | menu → `primary-menu` | yes, packed end as of this round |
 | `Gtk.Button` `output_button` (`document-save-symbolic`) | 1 | — | `win.export` | yes |
-| `Gtk.MenuButton` `menu_button` (title slot, `direction=none`) | 1 | `title-menu-button`, `flat` | boot `GMenu` | **CSS classes missing** |
+| `Gtk.MenuButton` `menu_button` (title slot, `direction=none`) | 1 | `title-menu-button`, `flat` | boot `GMenu` | yes, both classes present as of this round |
 | `Gtk.ToggleButton` `search_button` (`edit-find-symbolic`) | 1 | — | `win.search` | present, but wired to a Ruby callback instead of the action |
-| `Gtk.Grid` + `Gtk.Label` title (runtime, `gl-eventtoolbar.c:139-149`) | 1+2 | `title`, `caption`, `dim-label` | — | yes, but `subtitle` used instead of `caption` |
+| `Gtk.Grid` + `Gtk.Label` title (runtime, `gl-eventtoolbar.c:139-149`) | 1+2 | `title`, `caption`, `dim-label` | — | yes, `caption` as of this round |
 
 `primary-menu` (`Gio.Menu`, 2 sections, 4 items): `app.new-window`,
 `win.show-help-overlay`, `app.help`, `app.about`. Boot menu built at runtime
@@ -83,10 +83,11 @@ with `g_menu_prepend_section (boot_menu, _("Boot"), …)` and `win.view-boot`
 radio items.
 
 **Gaps**
-- ~~`title-menu-button`~~ applied as of `ed00940`; `flat` on the boot button is still missing.
-- The port's primary menu is one flat section; upstream has two, so the separator between "New Window" and the rest is lost.
-- The boot chooser is a `Gtk::ListBox` in a popover rather than a `Gio::Menu` of `win.view-boot` radio items, and has no `_("Boot")` section header.
-- `caption` CSS class on the boot subtitle label replaced with `subtitle`.
+- ~~`title-menu-button`~~ applied as of `ed00940`; `flat` added this round.
+- ~~The port's primary menu is one flat section~~ fixed this round: `primary_menu` now appends `new_window_section` and `help_section` as two `Gio::Menu` sections, restoring the separator.
+- ~~The boot chooser is a `Gtk::ListBox` in a popover~~ fixed this round: `EventToolbar#boot_menu` is a `Gio::Menu` with one `_("Boot")` section of `win.view-boot` radio items (`set_action_and_target_value`, targeted by boot index), fed to `boot_button.menu_model`.
+- `caption` CSS class on the boot subtitle label — fixed this round (was `subtitle`).
+- The boot menu's target is the port's own boot `index`, not the libsystemd boot-match string upstream uses — the port has no match-string plumbing, and boot selection already goes through `first_time`/`last_time`, not a journalctl match.
 
 ### `data/gl-categorylist.ui` + `src/gl-categorylist.c` — the sidebar
 
@@ -130,7 +131,7 @@ time labels of the activated row.
 
 **Gaps (the largest in the port)**
 - **Compressed entry groups are entirely absent.** `gl-eventviewlist.c:190-350` collapses consecutive identical messages into a collapsible group with a header row, a `compressed-entries-label` count badge and group separators. Four of the app's CSS classes exist only for this and are dead in the port.
-- `popover-activated-row` highlight and the `dim-label` swap on the activated row are not applied, and nothing removes them because the detail popover's `closed` signal is not connected.
+- ~~`popover-activated-row` highlight...~~ applied as of this round: `event_view_row.rb`'s `activate` adds the class and drops `dim-label` from the category/time labels, and the detail popover's `closed` signal (connected once, in `detail_popover`'s `tap`) reverts both.
 - `gl_event_view_list_set_sort_order` is unported.
 - The vertical separator between sidebar and content.
 
@@ -138,7 +139,7 @@ time labels of the activated row.
 
 | Widget | × | CSS | Notes | Port |
 |---|---:|---|---|---|
-| `Gtk.ListBoxRow` template | 1 | `event` | | **`event` class missing** |
+| `Gtk.ListBoxRow` template | 1 | `event` | | yes, as of this round |
 | `Gtk.Grid` | 1 | — | | yes |
 | `Gtk.Label` `category_label` | 1 | `dim-label`, `event-monospace` | one of Applications / Hardware / System / Security / Other | yes |
 | `Gtk.Label` `message_label` | 1 | `event-monospace` | | yes |
@@ -226,10 +227,10 @@ Watches `org.gnome.desktop.interface` `monospace-font-name` and regenerates a
 
 **Gaps**
 - No `monospace-font-name` watcher. `.event-monospace` is now defined as a static rule in `data/style.css` and applied to three labels, so the list is monospaced, but it does not follow the desktop monospace font setting.
-- No `sort-order` watcher.
-- No `--version` option.
-- About dialog: `designers`, `developers`, `translator-credits`, `copyright`, `issue-url` all missing; `comments` is an addition not upstream.
-- `app.quit` / `<Primary>q` and `win.show-help-overlay` / `<Primary>question` are **additions** beyond upstream.
+- ~~No `sort-order` watcher~~ fixed this round, at the window level — see `gl-window.c`'s gap list above.
+- No `--version` option (the Ruby `Gio::Application#add_main_option_entries` binding takes a `GObjectIntrospection::Struct`, not the `Hash` an option-entry naturally is in Ruby, and no working call shape was found this round).
+- ~~About dialog: `designers`, `developers`, `translator-credits`, `copyright`, `issue-url` all missing~~ fixed this round, all five now set on the `Adwaita::AboutWindow`; `comments` stays as the one addition not upstream.
+- ~~`app.quit` / `<Primary>q`~~ dropped this round, action and accelerator both. `win.show-help-overlay` / `<Primary>question` stays — it is `GtkShortcutsWindow`'s own conventional action name, not an app-specific addition.
 
 ### `src/gl-util.c` — `lib/gnome_logs/util.rb`
 
@@ -253,7 +254,7 @@ because compressed entry groups are still unported.
 | Upstream | Port | Status |
 |---|---|---|
 | `data/org.gnome.Logs.gschema.xml` | present | yes |
-| `data/style.css` | present | yes; `.event-monospace` and `.title-menu-button` now have callers, `.event`, `.compressed-*` and `.popover-activated-row` are still dead |
+| `data/style.css` | present | yes; `.event-monospace`, `.title-menu-button`, `.event` and `.popover-activated-row` now have callers; `.compressed-*` is still dead |
 | `data/style-hc.css` | present | yes — `application.rb` adds/removes the provider on `Adwaita::StyleManager` `notify::high-contrast` |
 | `data/org.gnome.Logs.gresource.xml` | n/a | not needed (no `.ui` by design) |
 | `data/org.gnome.Logs.metainfo.xml` | present | yes |
@@ -267,14 +268,17 @@ because compressed entry groups are still unported.
 ## Summary of work remaining
 
 *Updated after `ed00940` (gl-util, style-hc.css, metainfo, D-Bus service, the
-first spec file). Items 1, 8 and the "no tests at all" line are now closed.*
+first spec file). Items 1, 8 and the "no tests at all" line are now closed.
+Updated again this round: items 4, 5, 6, 8 (continued below) and most of 3 and
+7 are now closed; the header-bar packing/CSS/menu-section gaps listed under
+`gl-eventtoolbar.c` above are closed too.*
 
 1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.
-3. `.event-monospace` CSS from `monospace-font-name`, plus the `event` class on rows.
-4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.
-5. Sort-order plumbing: `sort-order` watcher → window → event view list.
-6. `popover-activated-row` highlight and the detail popover's `closed` handler.
-7. About dialog fields; `--version`; drop the non-upstream `app.quit`.
+3. `.event-monospace` CSS from `monospace-font-name` — still open; the `event` class on rows is done.
+~~4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.~~
+~~5. Sort-order plumbing: `sort-order` watcher → window → event view list.~~
+~~6. `popover-activated-row` highlight and the detail popover's `closed` handler.~~
+7. `--version` command-line option — still open (see the `gl-application.c` gap note on the Ruby binding's option-entry shape). About dialog fields are done; `app.quit` is dropped.
 8. `style-hc.css`, `metainfo.xml`, `service` file.
 9. Search popover: spin-button time precision, date entries, revealers.
 10. A spec suite — none exists.

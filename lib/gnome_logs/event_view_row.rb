@@ -34,11 +34,30 @@ module GnomeLogs
 
     # The detail grid is only built the first time the row is activated, so a
     # list of a thousand rows does not pay for a thousand detail views.
+    #
+    # Ports the popover-activated-row highlight: the C version adds the class
+    # and drops dim-label from the category and time columns while the detail
+    # popover is open, so the activated row reads at full contrast.
     def activate
+      row.add_css_class('popover-activated-row')
+      dim_label_widgets.each { |widget| widget.remove_css_class('dim-label') }
+
       detail_popover.tap do |popover|
         popover.child = detail.build
         popover.popup
       end
+    end
+
+    # Ports gl_event_view_detail_popover_closed: reverting the highlight when
+    # the popover goes away, whether that is from re-activating another row or
+    # dismissing this one.
+    def on_popover_closed
+      row.remove_css_class('popover-activated-row')
+      dim_label_widgets.each { |widget| widget.add_css_class('dim-label') }
+    end
+
+    def dim_label_widgets
+      show_category ? [category_label, time_label] : [time_label]
     end
 
     # Popovers attached with set_parent must be detached explicitly, otherwise
@@ -47,12 +66,18 @@ module GnomeLogs
 
     def detail = @detail ||= EventViewDetail.new(entry, catalog, clock_format)
 
-    def row = @row ||= Gtk::ListBoxRow.new.tap { |r| r.activatable = true }
+    def row
+      @row ||= Gtk::ListBoxRow.new.tap do |r|
+        r.activatable = true
+        r.add_css_class('event')
+      end
+    end
 
     def detail_popover
       @detail_popover ||= Gtk::Popover.new.tap do |popover|
         popover.position = :bottom
         popover.has_arrow = true
+        popover.signal_connect('closed') { on_popover_closed }
       end
     end
 

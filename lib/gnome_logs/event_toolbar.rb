@@ -18,31 +18,17 @@ module GnomeLogs
     def build
       @build ||= header_bar.tap do |bar|
         bar.title_widget = title_box
-        bar.pack_start(main_menu_button)
         bar.pack_start(boot_button)
-        bar.pack_end(search_button)
+        bar.pack_end(main_menu_button)
         bar.pack_end(export_button)
+        bar.pack_end(search_button)
 
         title_box.tap do |box|
           box.append(title_label)
           box.append(boot_label)
         end
 
-        boot_button.tap do |btn|
-          btn.popover = boot_popover
-
-          boot_popover.tap do |popover|
-            popover.child = boot_list
-
-            boot_list.tap do |lb|
-              journal.boots.reverse_each { |boot| lb.append(boot_row(boot)) }
-
-              lb.signal_connect('row-activated') do |_, row|
-                select_boot(boots_newest_first[row.index])
-              end
-            end
-          end
-        end
+        boot_button.menu_model = boot_menu
 
         search_button.tap do |btn|
           btn.signal_connect('toggled') { on_search_toggled.call(btn.active?) }
@@ -50,28 +36,38 @@ module GnomeLogs
       end
     end
 
+    # Called externally once Window's win.view-boot action commits a new
+    # state, and once from build to show the default selection.
     def select_boot(boot)
       boot_label.label = boot.display_name
-      boot_popover.popdown
       on_boot_selected.call(boot)
     end
 
     def boots_newest_first = @boots_newest_first ||= journal.boots.reverse
 
-    def boot_row(boot)
-      Gtk::ListBoxRow.new.tap do |row|
-        row.child = Gtk::Label.new(boot.display_name).tap do |lbl|
-          lbl.xalign = 0
-          lbl.margin_top = 6
-          lbl.margin_bottom = 6
-          lbl.margin_start = 12
-          lbl.margin_end = 12
+    # Ports the runtime-built boot GMenu of gl-eventtoolbar.c: a single
+    # "Boot" section of win.view-boot radio items, newest boot first.
+    def boot_menu
+      @boot_menu ||= Gio::Menu.new.tap do |menu|
+        boot_section.tap do |section|
+          boots_newest_first.each do |boot|
+            section.append_item(boot_menu_item(boot))
+          end
         end
+
+        menu.append_section(t('Boot'), boot_section)
+      end
+    end
+
+    def boot_section = @boot_section ||= Gio::Menu.new
+
+    def boot_menu_item(boot)
+      Gio::MenuItem.new(boot.display_name, nil).tap do |item|
+        item.set_action_and_target_value('win.view-boot', GLib::Variant.new(boot.index.to_s))
       end
     end
 
     def header_bar = @header_bar ||= Adwaita::HeaderBar.new
-    def boot_popover = @boot_popover ||= Gtk::Popover.new
 
     def title_box
       @title_box ||= Gtk::Box.new(:vertical, 0).tap do |box|
@@ -87,25 +83,21 @@ module GnomeLogs
 
     def boot_label
       @boot_label ||= Gtk::Label.new(boots_newest_first.first&.display_name.to_s).tap do |lbl|
-        lbl.add_css_class('subtitle')
+        lbl.add_css_class('caption')
         lbl.add_css_class('dim-label')
         lbl.ellipsize = :end
       end
     end
 
-    # The title-menu-button class is the one the C version's header bar
-    # template sets on this button; data/style-hc.css styles it.
+    # The title-menu-button and flat classes are the ones the C version's
+    # header bar template sets on this button; data/style-hc.css styles the
+    # former.
     def boot_button
       @boot_button ||= Gtk::MenuButton.new.tap do |btn|
         btn.icon_name = 'pan-down-symbolic'
         btn.tooltip_text = t('Choose the boot from which to view logs')
         btn.add_css_class('title-menu-button')
-      end
-    end
-
-    def boot_list
-      @boot_list ||= Gtk::ListBox.new.tap do |lb|
-        lb.selection_mode = :none
+        btn.add_css_class('flat')
       end
     end
 
@@ -132,12 +124,26 @@ module GnomeLogs
       end
     end
 
+    # Ports the two-section primary-menu of gl-eventtoolbar.ui: New Window on
+    # its own, separated from the help/about group below it.
     def primary_menu
       @primary_menu ||= Gio::Menu.new.tap do |menu|
-        menu.append(t('_New Window'), 'app.new-window')
-        menu.append(t('_Keyboard Shortcuts'), 'win.show-help-overlay')
-        menu.append(t('_Help'), 'app.help')
-        menu.append(t('_About Logs'), 'app.about')
+        menu.append_section(nil, new_window_section)
+        menu.append_section(nil, help_section)
+      end
+    end
+
+    def new_window_section
+      @new_window_section ||= Gio::Menu.new.tap do |section|
+        section.append(t('_New Window'), 'app.new-window')
+      end
+    end
+
+    def help_section
+      @help_section ||= Gio::Menu.new.tap do |section|
+        section.append(t('_Keyboard Shortcuts'), 'win.show-help-overlay')
+        section.append(t('_Help'), 'app.help')
+        section.append(t('_About Logs'), 'app.about')
       end
     end
   end
