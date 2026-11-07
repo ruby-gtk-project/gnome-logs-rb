@@ -150,10 +150,15 @@
             devGems.wrappedRuby
             pkgs.bundix
             pkgs.pkg-config
+            pkgs.xvfb-run
+            pkgs.rubyPackages_3_4.rspec
           ] ++ nativeLibs;
 
           shellHook = ''
-            echo "gnome-logs (Ruby GTK4) — run: ruby -Ilib bin/gnome-logs"
+            export RUBYLIB="$PWD/lib''${RUBYLIB:+:$RUBYLIB}"
+            echo "gnome-logs (Ruby GTK4) — run:   xvfb-run -a ruby -Ilib bin/gnome-logs"
+            echo "drive the app: xvfb-run -a ruby test/drive_gnome_logs.rb"
+            echo "run the specs: xvfb-run -a ruby -e 'require \"rspec/core\"; exit RSpec::Core::Runner.run([\"--format\", \"progress\", \"--require\", \"spec_helper\", \"spec\"])'"
           '';
         };
 
