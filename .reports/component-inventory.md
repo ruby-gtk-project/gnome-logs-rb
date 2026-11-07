@@ -63,7 +63,7 @@ name `_("log messages")`.
 
 **Gaps**
 - ~~`win.view-boot` stateful radio action is not installed~~ fixed this round: `Window#view_boot_action` is a stateful `s`-typed action, `change-state` commits the new boot and tells `EventToolbar` to update its label, and the header-bar menu is now the `Gio::Menu` described under `gl-eventtoolbar.c` below.
-- `_("Unable to read user logs")` is never shown — the port collapses both to the system-logs message.
+- ~~`_("Unable to read user logs")` is never shown — the port collapses both to the system-logs message.~~ correction this round: `Window#check_journal_storage` already distinguishes the two, via `Util.can_read_system_journal?`/`can_read_user_journal?`.
 - ~~`gl_window_set_sort_order` has no counterpart~~ fixed this round: `Window#watch_sort_order` connects `changed::sort-order` on the window's own `Gio::Settings` and reloads the list with the new order (at the window level, since there is no application-level journal/settings registry to push through here).
 
 ### `data/gl-eventtoolbar.ui` + `src/gl-eventtoolbar.c` — the header bar
@@ -246,11 +246,13 @@ unavailable without libsystemd, so the machine id is read from
 `/etc/machine-id`. The row, the list and the detail popover now render through
 `Util` instead of `strftime('%X')`.
 
-**Fixed this round**: compressed entry groups are now ported (see item 1
-below), so `_("%s – %s")` finally has a plausible caller, but nothing in this
-round builds the timestamp-span text that format takes — it would need a
-helper computing the group's first/last displayed time, which was not
-written. The format string still has no caller.
+**Correction**: `_("%s – %s")` does have a caller, and did before this round
+— `Journal::Boot#display_name` calls `Util.boot_time_to_display`, which is
+what the boot menu label (`EventToolbar#boot_menu_item`/`#select_boot`) shows.
+That is the same caller `gl_util_boot_time_to_display` has upstream
+(`gl-eventtoolbar.c`'s boot menu, from `realtime_first`/`realtime_last`), so
+this line's prior claim that the format string "still has no caller" was
+wrong; nothing needed porting here.
 
 ## Non-widget data parity
 
@@ -278,7 +280,7 @@ closed; the header-bar packing/CSS/menu-section gaps listed under
 (compressed entry groups) is closed.*
 
 ~~1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.~~ fixed this round. `EventViewList#grouped_entries` ports `gl_journal_model_fetch_idle`'s grouping test (first-word-of-message or same-sender, on runs of 2+ adjacent entries) and `gl_journal_model_add_header`'s header-entry synthesis; `JournalEntry#row_type`/`#compressed_entries` carry the `GlRowEntryType`/count `GlRowEntry` held separately upstream. `EventViewRow` renders a header's message+badge box and starts a compressed row hidden, porting `on_parent_set`. `EventViewList#toggle_group` ports the expand/collapse branch of `on_listbox_row_activated`, including the `compressed-row`/`compressed-row-header`/`compressed-rows-group-separator` CSS toggling (simplified: it does not replicate the C version's extra checks for what a *neighbouring* compressed group's separator should do, since two groups sitting back-to-back is not exercised by anything in this port). `apply_headers` ports `listbox_update_header_func`. All four `.compressed-*` CSS classes are restored to `data/style.css` (a prior round's comment claiming they were "gone with the row compression system" was wrong — they were never used because the feature was never ported; the comment is removed). Verified directly (not by the app driver, which has nothing in its sandboxed journal that groups): a scratch script builds `EventViewList` against five synthetic entries where three share a sender, confirms the grouped list is `[normal, header(3), compressed, compressed, compressed, normal]`, and confirms `on_row_activated` on the header toggles the three compressed rows' visibility and CSS classes both ways.
-2. `_("%s – %s")`, the compressed-range format, still has no caller — see the `gl-util.c` note above.
+~~2. `_("%s – %s")`, the compressed-range format, still has no caller.~~ correction this round: it already had one (`Journal::Boot#display_name`, the boot menu label) — see the `gl-util.c` note above.
 ~~3. `.event-monospace` CSS from `monospace-font-name`~~ fixed in a prior round: `Application#watch_monospace_font` + `Util.font_description_to_css`. The `event` class on rows is done.
 ~~4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.~~
 ~~5. Sort-order plumbing: `sort-order` watcher → window → event view list.~~
@@ -286,4 +288,4 @@ closed; the header-bar packing/CSS/menu-section gaps listed under
 7. `--version` command-line option — still open (see the `gl-application.c` gap note on the Ruby binding's option-entry shape). About dialog fields are done; `app.quit` is dropped.
 8. `style-hc.css`, `metainfo.xml`, `service` file.
 9. Search popover: spin-button time precision, date entries, revealers.
-10. A spec suite — none exists.
+~~10. A spec suite — none exists.~~ expanded this round: `spec/gnome_logs/{query,category,journal_entry,catalog}_spec.rb` cover the pure-Ruby model layer (60 examples) alongside the existing `util_spec.rb`. The widget classes (window, event_view_list/row/detail, event_toolbar, search_popover, category_list) still have no specs and would need a headless GTK harness to get them, which this round did not build.
