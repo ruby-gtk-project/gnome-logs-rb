@@ -123,7 +123,7 @@ RSpec.describe GnomeLogs::Util do
 
   describe '.journal_storage_type' do
     it 'is one of the GlJournalStorage members' do
-      expect(described_class.journal_storage_type).to be_in(%i[none persistent volatile])
+      expect(%i[none persistent volatile]).to include(described_class.journal_storage_type)
     end
 
     it 'reports no storage when the machine id cannot be read' do
