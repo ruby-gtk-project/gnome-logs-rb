@@ -12,7 +12,7 @@ module GnomeLogs
   # — the desktop clock format — is read fresh each time, as the C version
   # does.
   #
-  # Three deliberate differences from the C version:
+  # Two deliberate differences from the C version:
   #
   # * sd_id128_get_machine needs libsystemd, which Ruby cannot link against
   #   here, so the machine id is read from /etc/machine-id (and the older dbus
@@ -20,9 +20,12 @@ module GnomeLogs
   # * Ruby's Time#strftime is not locale aware, so %b and %p render in English
   #   whatever the locale is. The format strings themselves are still
   #   translated, so the order of the fields follows the locale.
-  # * pango_font_description_to_css has no counterpart: the C version used it
-  #   to turn the desktop monospace font into a CSS fragment at run time, and
-  #   data/style.css declares `font-family: monospace` instead.
+  #
+  # pango_font_description_to_css (used by gl-application.c to turn the
+  # desktop monospace font into a CSS fragment) is ported below as
+  # Util.font_description_to_css; Application uses it to watch
+  # org.gnome.desktop.interface's monospace-font-name and regenerate
+  # .event-monospace.
   module Util
     extend Translation
 
@@ -160,6 +163,28 @@ module GnomeLogs
       Gio::SettingsSchemaSource.default&.lookup(DESKTOP_SCHEMA, true) ? true : false
     rescue StandardError
       false
+    end
+
+    # Ports pango_font_description_to_css: one CSS declaration per field the
+    # description actually sets, so a caller's existing theme is left alone
+    # for anything the description leaves unspecified.
+    def self.font_description_to_css(desc)
+      desc.set_fields.then do |mask|
+        [
+          (%(font-family:"#{desc.family}";) if mask.family?),
+          ("font-style:#{desc.style.nick};" if mask.style?),
+          ("font-variant:#{desc.variant.nick};" if mask.variant?),
+          ("font-weight:#{desc.weight.to_i};" if mask.weight?),
+          ("font-stretch:#{desc.stretch.nick};" if mask.stretch?),
+          (font_size_css(desc) if mask.size?)
+        ].compact.join
+      end
+    end
+
+    def self.font_size_css(desc)
+      (desc.size / Pango::SCALE).then do |size|
+        desc.size_is_absolute? ? "font-size:#{size}px;" : "font-size:#{size}pt;"
+      end
     end
 
     # Ports compare_timestamps: how much of the date still needs showing once

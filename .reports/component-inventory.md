@@ -226,7 +226,7 @@ Watches `org.gnome.desktop.interface` `monospace-font-name` and regenerates a
 `--version` command-line option.
 
 **Gaps**
-- No `monospace-font-name` watcher. `.event-monospace` is now defined as a static rule in `data/style.css` and applied to three labels, so the list is monospaced, but it does not follow the desktop monospace font setting.
+- ~~No `monospace-font-name` watcher~~ fixed this round: `Application#watch_monospace_font` watches `org.gnome.desktop.interface`'s `monospace-font-name` and regenerates a `.event-monospace` CSS provider from it via the new `Util.font_description_to_css`, ported from `pango_font_description_to_css`.
 - ~~No `sort-order` watcher~~ fixed this round, at the window level — see `gl-window.c`'s gap list above.
 - No `--version` option (the Ruby `Gio::Application#add_main_option_entries` binding takes a `GObjectIntrospection::Struct`, not the `Hash` an option-entry naturally is in Ruby, and no working call shape was found this round).
 - ~~About dialog: `designers`, `developers`, `translator-credits`, `copyright`, `issue-url` all missing~~ fixed this round, all five now set on the `Adwaita::AboutWindow`; `comments` stays as the one addition not upstream.
@@ -274,7 +274,7 @@ Updated again this round: items 4, 5, 6, 8 (continued below) and most of 3 and
 `gl-eventtoolbar.c` above are closed too.*
 
 1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.
-3. `.event-monospace` CSS from `monospace-font-name` — still open; the `event` class on rows is done.
+~~3. `.event-monospace` CSS from `monospace-font-name`~~ fixed this round: `Application#watch_monospace_font` + `Util.font_description_to_css`. The `event` class on rows is done.
 ~~4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.~~
 ~~5. Sort-order plumbing: `sort-order` watcher → window → event view list.~~
 ~~6. `popover-activated-row` highlight and the detail popover's `closed` handler.~~

@@ -10,6 +10,10 @@ module GnomeLogs
     VERSION = '45.alpha'
     HELP_URI = 'help:gnome-logs'
 
+    DESKTOP_SCHEMA = 'org.gnome.desktop.interface'
+    MONOSPACE_FONT_NAME_KEY = 'monospace-font-name'
+    DEFAULT_MONOSPACE_FONT = 'Monospace'
+
     ACCELS = {
       'win.close' => ['<Primary>w'],
       'win.search' => ['<Primary>f'],
@@ -37,6 +41,7 @@ module GnomeLogs
           ACCELS.each { |action, accels| a.set_accels_for_action(action, accels) }
 
           load_style
+          watch_monospace_font
         end
 
         a.signal_connect('activate') { on_new_window }
@@ -120,6 +125,36 @@ module GnomeLogs
     def style_provider = @style_provider ||= provider_for(style_path)
     def high_contrast_provider = @high_contrast_provider ||= provider_for(high_contrast_style_path)
     def style_manager = @style_manager ||= Adwaita::StyleManager.default
+
+    # Ports on_monospace_font_name_changed: watches
+    # org.gnome.desktop.interface's monospace-font-name and keeps a
+    # `.event-monospace` CSS provider matching it, so the event rows'
+    # monospaced labels follow the desktop setting instead of a static rule.
+    def watch_monospace_font
+      add_provider(monospace_provider)
+
+      desktop_settings&.signal_connect("changed::#{MONOSPACE_FONT_NAME_KEY}") { apply_monospace_font }
+
+      apply_monospace_font
+    end
+
+    def apply_monospace_font = monospace_provider.load_from_data(monospace_css)
+
+    def monospace_css = ".event-monospace { #{Util.font_description_to_css(monospace_font_description)} }"
+
+    def monospace_font_description = Pango::FontDescription.from_string(monospace_font_name)
+
+    def monospace_font_name
+      desktop_settings ? desktop_settings[MONOSPACE_FONT_NAME_KEY] : DEFAULT_MONOSPACE_FONT
+    end
+
+    def desktop_settings
+      return @desktop_settings if defined?(@desktop_settings)
+
+      @desktop_settings = Util.desktop_schema_installed? ? Gio::Settings.new(DESKTOP_SCHEMA) : nil
+    end
+
+    def monospace_provider = @monospace_provider ||= Gtk::CssProvider.new
 
     def data_dir = ENV.fetch('GNOME_LOGS_DATA_DIR', File.expand_path('../../data', __dir__))
     def style_path = File.join(data_dir, 'style.css')
