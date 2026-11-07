@@ -149,10 +149,10 @@ module GnomeLogs
     end
 
     def desktop_settings
-      return @desktop_settings if defined?(@desktop_settings)
-
-      @desktop_settings = Util.desktop_schema_installed? ? Gio::Settings.new(DESKTOP_SCHEMA) : nil
+      defined?(@desktop_settings) ? @desktop_settings : (@desktop_settings = desktop_settings_if_installed)
     end
+
+    def desktop_settings_if_installed = Util.desktop_schema_installed? ? Gio::Settings.new(DESKTOP_SCHEMA) : nil
 
     def monospace_provider = @monospace_provider ||= Gtk::CssProvider.new
 

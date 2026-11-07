@@ -43,6 +43,13 @@ module GnomeLogs
     attr_accessor(*FIELDS.keys)
     attr_accessor :display_time_label
 
+    # Ports GlRowEntryType and GlRowEntry#compressed_entries. Every entry
+    # starts :normal; EventViewList#grouped_entries promotes runs of similar
+    # adjacent entries to a :header (standing in for the whole run) followed
+    # by :compressed entries (the run itself, hidden until the header is
+    # activated).
+    attr_accessor :row_type, :compressed_entries
+
     def self.from_json(hash)
       new(**FIELDS.transform_values { |field| stringify(hash[field]) })
     end
@@ -62,6 +69,8 @@ module GnomeLogs
     def initialize(**attrs)
       FIELDS.each_key { |name| instance_variable_set("@#{name}", attrs[name].to_s) }
       @display_time_label = true
+      @row_type = :normal
+      @compressed_entries = 0
     end
 
     def timestamp_usec = timestamp.to_i
@@ -76,9 +85,12 @@ module GnomeLogs
     # as a single row, matching gl_event_view_row_replace_newline.
     def single_line_message = message.tr("\n", NEWLINE_SYMBOL)
 
+    # single_line_message, not the raw message: a message containing a literal
+    # newline would otherwise split into more lines than entries, breaking
+    # the one-line-per-entry guarantee Window#export_to relies on.
     def to_export_line
       format('%<time>s %<sender>s: %<message>s', time: time.strftime('%b %d %H:%M:%S'),
-                                                 sender: sender, message: message)
+                                                 sender: sender, message: single_line_message)
     end
   end
 end

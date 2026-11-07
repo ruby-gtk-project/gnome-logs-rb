@@ -246,15 +246,18 @@ unavailable without libsystemd, so the machine id is read from
 `/etc/machine-id`. The row, the list and the detail popover now render through
 `Util` instead of `strftime('%X')`.
 
-**Remaining gap**: the compressed-range format `_("%s – %s")` has no caller,
-because compressed entry groups are still unported.
+**Fixed this round**: compressed entry groups are now ported (see item 1
+below), so `_("%s – %s")` finally has a plausible caller, but nothing in this
+round builds the timestamp-span text that format takes — it would need a
+helper computing the group's first/last displayed time, which was not
+written. The format string still has no caller.
 
 ## Non-widget data parity
 
 | Upstream | Port | Status |
 |---|---|---|
 | `data/org.gnome.Logs.gschema.xml` | present | yes |
-| `data/style.css` | present | yes; `.event-monospace`, `.title-menu-button`, `.event` and `.popover-activated-row` now have callers; `.compressed-*` is still dead |
+| `data/style.css` | present | yes; `.event-monospace`, `.title-menu-button`, `.event`, `.popover-activated-row` and all four `.compressed-*` classes now have callers |
 | `data/style-hc.css` | present | yes — `application.rb` adds/removes the provider on `Adwaita::StyleManager` `notify::high-contrast` |
 | `data/org.gnome.Logs.gresource.xml` | n/a | not needed (no `.ui` by design) |
 | `data/org.gnome.Logs.metainfo.xml` | present | yes |
@@ -269,12 +272,14 @@ because compressed entry groups are still unported.
 
 *Updated after `ed00940` (gl-util, style-hc.css, metainfo, D-Bus service, the
 first spec file). Items 1, 8 and the "no tests at all" line are now closed.
-Updated again this round: items 4, 5, 6, 8 (continued below) and most of 3 and
-7 are now closed; the header-bar packing/CSS/menu-section gaps listed under
-`gl-eventtoolbar.c` above are closed too.*
+Updated again: items 4, 5, 6, 8 (continued below) and most of 3 and 7 are now
+closed; the header-bar packing/CSS/menu-section gaps listed under
+`gl-eventtoolbar.c` above are closed too. Updated again this round: item 1
+(compressed entry groups) is closed.*
 
-1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.
-~~3. `.event-monospace` CSS from `monospace-font-name`~~ fixed this round: `Application#watch_monospace_font` + `Util.font_description_to_css`. The `event` class on rows is done.
+~~1. Compressed entry groups: grouping in `event_view_list.rb`, header/badge in `event_view_row.rb`, 4 CSS classes.~~ fixed this round. `EventViewList#grouped_entries` ports `gl_journal_model_fetch_idle`'s grouping test (first-word-of-message or same-sender, on runs of 2+ adjacent entries) and `gl_journal_model_add_header`'s header-entry synthesis; `JournalEntry#row_type`/`#compressed_entries` carry the `GlRowEntryType`/count `GlRowEntry` held separately upstream. `EventViewRow` renders a header's message+badge box and starts a compressed row hidden, porting `on_parent_set`. `EventViewList#toggle_group` ports the expand/collapse branch of `on_listbox_row_activated`, including the `compressed-row`/`compressed-row-header`/`compressed-rows-group-separator` CSS toggling (simplified: it does not replicate the C version's extra checks for what a *neighbouring* compressed group's separator should do, since two groups sitting back-to-back is not exercised by anything in this port). `apply_headers` ports `listbox_update_header_func`. All four `.compressed-*` CSS classes are restored to `data/style.css` (a prior round's comment claiming they were "gone with the row compression system" was wrong — they were never used because the feature was never ported; the comment is removed). Verified directly (not by the app driver, which has nothing in its sandboxed journal that groups): a scratch script builds `EventViewList` against five synthetic entries where three share a sender, confirms the grouped list is `[normal, header(3), compressed, compressed, compressed, normal]`, and confirms `on_row_activated` on the header toggles the three compressed rows' visibility and CSS classes both ways.
+2. `_("%s – %s")`, the compressed-range format, still has no caller — see the `gl-util.c` note above.
+~~3. `.event-monospace` CSS from `monospace-font-name`~~ fixed in a prior round: `Application#watch_monospace_font` + `Util.font_description_to_css`. The `event` class on rows is done.
 ~~4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.~~
 ~~5. Sort-order plumbing: `sort-order` watcher → window → event view list.~~
 ~~6. `popover-activated-row` highlight and the detail popover's `closed` handler.~~

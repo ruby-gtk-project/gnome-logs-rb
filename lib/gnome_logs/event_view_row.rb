@@ -19,10 +19,11 @@ module GnomeLogs
     def build
       @build ||= row.tap do |r|
         r.child = grid
+        r.visible = false if entry.row_type == :compressed
 
         grid.tap do |g|
           g.attach(category_label, 0, 0, 1, 1) if show_category
-          g.attach(message_label, 1, 0, 1, 1)
+          g.attach(message_cell, 1, 0, 1, 1)
           g.attach(time_label, 2, 0, 1, 1)
 
           size_group.add_widget(category_label) if show_category
@@ -30,6 +31,21 @@ module GnomeLogs
 
         detail_popover.set_parent(r)
       end
+    end
+
+    # Ports the branch in gl_event_view_row_constructed that builds a
+    # message_box for a header row: the message plus a badge counting the
+    # entries it is standing in for. Every other row shows the message alone.
+    def message_cell
+      @message_cell ||=
+        if entry.row_type == :header
+          Gtk::Box.new(:horizontal, 10).tap do |box|
+            box.append(message_label)
+            box.append(compressed_entries_label)
+          end
+        else
+          message_label
+        end
     end
 
     # The detail grid is only built the first time the row is activated, so a
@@ -107,6 +123,15 @@ module GnomeLogs
         lbl.ellipsize = :end
         lbl.single_line_mode = true
         lbl.add_css_class('event-monospace')
+      end
+    end
+
+    def compressed_entries_label
+      @compressed_entries_label ||= Gtk::Label.new(entry.compressed_entries.to_s).tap do |lbl|
+        lbl.direction = :ltr
+        lbl.halign = :start
+        lbl.xalign = 0
+        lbl.add_css_class('compressed-entries-label')
       end
     end
 
