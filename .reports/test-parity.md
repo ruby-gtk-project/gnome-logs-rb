@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `45f9646` |
-| Port | `ruby` @ `4395dab` |
+| Port | `ruby` @ `6501e6b` |
 | Upstream tests | 1 (`/util/timestamp_to_display`, 6 inline cases) |
 | Ported | 1 / 1 |
 | Gaps | 0 |
-| **But: does the port's suite run at all?** | **No.** See below. |
+| **Does the port's suite run at all?** | **Yes, as of `6501e6b` — independently re-run this round.** See below for what that commit fixed and what this round verified directly, not from the commit message. |
 
 ## Census
 
@@ -42,27 +42,12 @@ plain checks (its own header comment says why: see next section). This is
 extra, not upstream-test parity — upstream has no app-driver equivalent to map
 these to.
 
-## The gap this ledger exists to catch: **the ported test has never actually passed**
+## History: the gap a prior round of this ledger found, and what closed it
 
-`spec/spec_helper.rb` does `require "kettle/test/rspec"`. That gem is declared
-as a development dependency in `gnome-logs-rb.gemspec` (`kettle-test`, `~> 2.0`)
-but is **not installed** in the fork's own `nix develop` shell — the shell's
-own `bundle check`/`bundle install` fail first, independent of `kettle-test`,
-because the Nix-provided `Gemfile` wrapper can't find a gemspec at the path it
-substitutes in:
-
-```
-Bundler::Dsl::DSLError: There was an error parsing `Gemfile`:
-There are no gemspecs at /nix/store/.../gemfile-and-lockfile.
-```
-
-Running the banner's own documented spec command,
-
-```
-xvfb-run -a ruby -e 'require "rspec/core"; exit RSpec::Core::Runner.run(["--format","progress","--require","spec_helper","spec"])'
-```
-
-produces, verified this round:
+A prior round of this audit (reports at `4395dab`/`43a56c5`) found that
+`spec/spec_helper.rb` hard-required `kettle/test/rspec`, a dev dependency not
+installed in the fork's `nix develop` shell, so the entire suite errored
+before a single example ran:
 
 ```
 Failure/Error: require "kettle/test/rspec"
@@ -71,28 +56,53 @@ No examples found.
 0 examples, 0 failures, 2 errors occurred outside of examples
 ```
 
-**Zero examples run. The 1/1 test-parity claim above is a claim about a file
-that has never been executed in this environment, by either `bundle` or the
-raw `ruby -e` the dev shell itself recommends.** The port's own
-`test/drive_gnome_logs.rb` says so out loud in its header comment — "the specs
-under spec/ are meant to cover the display-free half... spec/spec_helper.rb
-currently cannot load at all in this checkout" — and compensates by
-duplicating `Util`/`JournalEntry`/`Query`/`Catalog` assertions as driver
-`check()`s instead. That compensation is real coverage (it is inside the
-126/126 that passed), but it is not the ported RSpec test, and the ported
-RSpec test file sitting unexecuted in the tree is a gap on its own:
-**a test that has never run is unverified code wearing the shape of a pass.**
+That round correctly refused to count the ported test as `ported` while it
+could not execute, and flagged the then-current `drive_ok=true, 126/126` as a
+false-green: the driver passed, but the thing a reviewer would assume "passed"
+means — the RSpec suite — had never run once.
 
-This is the single most important line in this report: **drive_ok=true and
-126/126 does not mean the test suite passed. It means the test suite was never
-run, and a different, non-upstream-mapped driver script passed instead.**
+Commit `6501e6b` ("Make the spec suite runnable in the nix dev shell")
+rescues that specific `LoadError` in `spec_helper.rb` (falling back to plain
+RSpec, the same pattern `tally-rb` uses) and swaps a `kettle-test`-only
+matcher (`be_in`) in `util_spec.rb` for a plain `include` assertion. **This
+round re-ran both commands directly, not trusting the commit message:**
+
+```
+$ nix develop --command xvfb-run -a ruby -e 'require "rspec/core"; exit RSpec::Core::Runner.run(["--format","progress","--require","spec_helper","spec"])'
+NOTE: kettle-test isn't installed; running with plain RSpec.
+.....................................................................................
+85 examples, 0 failures
+
+$ nix develop --command xvfb-run -a ruby test/drive_gnome_logs.rb
+126 of 126 checks passed
+DRIVE OK
+```
+
+Both reproduce exactly as claimed. The fix is real, not a report claiming a
+fix. `/util/timestamp_to_display`'s 6 cases are now part of an 85-example run
+that actually executes, so the 1/1 test-parity claim is now backed by an
+executed test, not a dormant file.
+
+## What is still a gap
+
+- **The `kettle-test` dev dependency is still broken, not removed.** The fix
+  is a rescue around the symptom (`spec_helper.rb` degrades to plain RSpec
+  when the gem is missing), not a fix of why `nix develop`'s gem set excludes
+  a declared dependency, nor of the separate `bundle check`/`bundle install`
+  `Bundler::Dsl::DSLError` a prior round hit against the Nix-provided
+  `Gemfile` wrapper. That second failure was not re-tested this round because
+  the banner's own recommended command (the `ruby -e` form, not `bundle exec`)
+  is what actually runs the suite and was what this round verified; whether
+  `bundle install` itself now works in this shell is untested and should not
+  be assumed fixed by this commit, which touches no `Gemfile`/gemspec.
+- **No CI or Rake task runs either command.** Both the spec suite and the
+  driver are things a human (or an audit round) must remember to invoke by
+  hand from the banner text. Nothing fails a build if either regresses again.
 
 ## Rules applied
 
-- A ported test that cannot be executed is not `ported`, it is a gap plus a
-  tooling defect, per the skill's own rule ("a test that cannot be made to
-  pass is a gap plus an issue, not a comment-out"). Recorded here as the gap;
-  the `kettle-test` / Nix-Gemfile defect is the reason it is hard, not a
-  reason to call it closed.
+- A ported test is only credited as `ported` once this round independently
+  re-executed it and watched it pass — not on the strength of a commit
+  message or a prior round's report.
 - The 126 driver checks are not double-counted as the 1 upstream test's parity
   — they are `## Extra`, same as the rest of the driver's coverage.

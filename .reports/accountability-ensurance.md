@@ -6,8 +6,63 @@ Grepped `lib/`, `exe/`, `.reports/`, `FINDINGS.md`, and confirmed no
 deliberately`, `by design`, `simplified`, `does not carry over`, `skipped`,
 and `deliberate`.
 
-`lib/` and `exe/` are clean of all of these — no hit in source code or
-comments. **The violations are all in `.reports/component-inventory.md`**,
+**This round found one hit inside `lib/` itself** that prior rounds' same
+grep missed: `lib/gnome_logs/util.rb:15`, `# Two deliberate differences from
+the C version:`, introducing the comment that documents `Time#strftime`
+losing locale-awareness for `%b`/`%p`. The underlying technical content is
+accurate and worth having as a comment. But "deliberate" is exactly the
+forbidden register this skill exists to catch, and it did real damage here:
+the difference it waves past is a genuine runtime i18n regression (every
+timestamp in the app renders its month name and AM/PM marker in English in
+every non-English locale), and calling it "deliberate" is what let it sit
+undocumented in any `.reports/` parity file until this round — "deliberate"
+reads as "considered and accepted," not "found and flagged." It is now
+written up as a real gap in `component-parity.md` (the `gl-util.c` row,
+downgraded from `parity` to **gap**) and `translation-parity.md`. Rewritten
+per the skill's rule:
+
+> I wrote "two deliberate differences from the C version" over a comment
+> whose second item is a full-app locale regression (English month names and
+> AM/PM markers for every non-English user, in every timestamp the app
+> shows), because I am an idiot who reached for "deliberate" instead of just
+> stating what breaks and letting a parity report catch it. It sat in a code
+> comment with no report entry for at least three prior audit rounds.
+> Upstream: `gl_util_timestamp_to_display` → `g_date_time_format`, locale
+> aware. Port: `lib/gnome_logs/util.rb:78-84` → `Time#strftime`, not locale
+> aware for `%b`/`%p`.
+
+**A second, separate finding in the same file's prior parity report:**
+`component-parity.md`'s `gl-util.c` row (as it read before this round)
+claimed `_("%s – %s")` "has no caller anywhere in the port — built but
+unused." This round traced the call graph and found that claim is simply
+false: `Util.boot_time_to_display` (which formats with `'%s – %s'`) is
+called by `Journal::Boot#display_name`, which is called by
+`event_toolbar.rb` to build the boot label and every boot menu item. This is
+not a register problem like the others in this file — it is a factual error
+that understated the port's real coverage, caught only because this round
+re-derived the claim from source with `grep -rn` instead of trusting the
+prior report. Corrected in `component-parity.md` this round.
+
+**A third factual error, same pattern as the second:** `component-parity.md`'s
+`gl-window.c` row claimed `_('Unable to read user logs')` is "never shown."
+This round traced `check_journal_storage` against both the port and
+upstream's `gl_window_init`'s storage-type `switch` and found the claim
+false — the port shows that exact message, standalone, whenever storage is
+persistent, the system journal is readable, and the user journal is not
+(ordinary on a system where the user isn't in `systemd-journal`). Upstream's
+own switch has the identical single-label overwrite behaviour when both
+checks fail, so this was never a port-specific regression. Corrected in
+`component-parity.md`, which also now records the real, previously
+unreported divergence this tracing surfaced: the port's `check_journal_access`
+adds an `entries.empty?` branch upstream's switch does not have.
+
+Three factual errors in one parity report, all caught only by re-deriving
+each claim from source rather than trusting the report's prior language, is
+itself the accountability finding: a parity report with confident, specific
+wrong claims is worse than one that says "unverified," because it reads as
+checked when it was not.
+
+**The remaining violations are all in `.reports/component-inventory.md`**,
 the parity document a prior round of this same audit wrote.
 
 ## Findings, rewritten per the skill's own rule
@@ -110,31 +165,42 @@ even where the decision turns out to be correct. Becomes:
 > Upstream: `data/gl-searchpopover.ui`, two `Gtk.TreeView`+`Gtk.ListStore`
 > assemblies. Port: two `Gtk::DropDown`s, `lib/gnome_logs/search_popover.rb`.
 
-## The false-green this round found and is now recording, not excusing
+## The false-green a prior round found, and what has changed since
 
-**`drive_ok=true`, 126/126 checks, 0 failed is not the same claim as "the test
-suite passed."** `test/drive_gnome_logs.rb`'s own header comment states, in
-plain honest language that itself passes this skill's bar, that
-`spec/spec_helper.rb` "currently cannot load at all in this checkout" — and
-this round independently reproduced that exact failure (`LoadError: cannot
-load such file -- kettle/test/rspec`, 0 examples run). That sentence is
-*correctly* unvarnished; it is not the thing being flagged here. What is being
-flagged: **nowhere outside that one code comment is this written down.**
-`FINDINGS.md` has no entry for it. No `.reports/` file before this round's
-`test-parity.md` recorded it. A runtime gate reporting "126 checks passed, 0
-failed" with no asterisk is exactly the shape of false-green this skill
-exists to catch, even though no one *lied* about it — the gate's own numbers,
-read without `test/drive_gnome_logs.rb`'s source comment, assert a passing
-test suite that has never once executed. The gate is honest about what it
-ran; the gap is that what it ran was quietly substituted for what it claims,
-and the substitution was legible only inside a code comment, not in any
-report a reviewer would read first.
+A prior round of this audit found a real false-green: `drive_ok=true`,
+126/126 checks, 0 failed, while the RSpec suite had never once executed
+(`LoadError: cannot load such file -- kettle/test/rspec`, 0 examples). That
+round correctly refused to call it closed and wrote it into `test-parity.md`
+as the single most important line in that report.
+
+**This round, commit `6501e6b` ("Make the spec suite runnable in the nix dev
+shell") fixed the underlying cause** — `spec_helper.rb` now rescues the
+missing `kettle-test` dependency instead of dying on it — and this round
+independently re-ran both the spec command and the driver, from the banner,
+with no reliance on the commit message's own claim:
+
+```
+85 examples, 0 failures     (spec suite, re-run this round)
+126 of 126 checks passed    (driver, re-run this round)
+DRIVE OK
+```
+
+Both reproduce. The false-green is closed for the specific claim it was
+raised against: the 1/1 ported upstream test (`/util/timestamp_to_display`)
+now runs and passes inside an 85-example suite that executes, not a dormant
+file. `test-parity.md` records the remaining open edge (the `kettle-test` gem
+itself is still not actually installed in the shell; the fix is a rescue
+around that, not a resolution of it) rather than calling the dependency
+problem solved outright — see that report for the distinction.
 
 ## What this means for `clean: true`
 
-It cannot be `true`. Independent of the component/test/translation gaps
-found elsewhere in this audit, `.reports/component-inventory.md` itself
-— the port's own primary parity record — contains six instances of exactly
-the pattern this skill exists to kill, and the test-suite's never-having-run
-was not recorded anywhere a reviewer would see before this round forced it
-into a report.
+It still cannot be `true`. The test-suite false-green is now closed and
+verified, but `.reports/component-inventory.md` — the port's own primary
+parity record — still contains the six instances of exactly the pattern this
+skill exists to kill, documented above and not re-written by this round
+(rewriting another report's prose is not this skill's job; flagging it is).
+Independently, `component-parity.md` and `translation-parity.md` both record
+real, unresolved content gaps (the search popover's time-of-day controls, the
+detail popover's unconditional field display, 32 confirmed-missing msgids)
+that have nothing to do with the test-runner fix and were not touched by it.

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `45f9646` |
-| Port | `ruby` @ `4395dab` |
+| Port | `ruby` @ `6501e6b` |
 | Upstream messages | **128** distinct `(msgctxt, msgid)` keys, 161 occurrences, 8 with context, 0 plural, 3 unresolved (dynamic marker arguments the census can't read as a literal) |
 | Languages | 72, carried over **unchanged** — `po/LINGUAS` and all 72 `.po` files are byte-identical to upstream's, same 8,079 translated / 237 untranslated / 0 fuzzy |
 | Port messages, by the official census tool | **12** |
@@ -130,6 +130,33 @@ Each maps onto a component gap already named in `component-parity.md`:
   the GSettings schema's `<summary>`/`<description>` for the ignore-warning
   key; `data/org.gnome.Logs.gschema.xml` is present as a file but this
   specific description text is not in it.
+
+## A gap the msgid census cannot see: translated strings that still render in English
+
+The 32-missing-string census above is about *which strings exist*. A
+separate, real translation gap is about *what a translated string renders
+as* at runtime, and it was found reading `lib/gnome_logs/util.rb`, not by
+any census: the module's own header comment states that `Time#strftime` is
+not locale-aware, so the `%b` (month abbreviation) and `%p` (AM/PM) format
+directives embedded in every one of the 6 ported `FORMATS` patterns always
+render in English, in every locale, even though the format string itself
+(e.g. `'%b %e %l:%M:%S %p'`) is correctly passed through `t()`/gettext and
+*would* be translatable if GLib's locale-aware formatter were doing the
+rendering. Upstream's `gl_util_timestamp_to_display` calls `g_date_time_format`,
+which is locale-aware for both directives.
+
+This means: a German, French, or Japanese user of the port sees every log
+timestamp with an English month name and an English "AM"/"PM" marker,
+everywhere a timestamp is displayed — the event list, the event detail
+popover, and the boot menu/label (`boot_time_to_display` composes two of
+these strings with `'%s – %s'`, confirmed called from
+`Journal::Boot#display_name`, itself called from `event_toolbar.rb`). This is
+not in the 32-missing list above because the *msgid itself* is present and
+correctly marked for translation — the defect is downstream of gettext, in
+Ruby's non-locale-aware `strftime`, and no msgid count can surface it. It is
+recorded here because a translation-parity audit that only counts msgids
+would call this component fully translated while a non-English user sees
+untranslated date fields on every single log entry.
 
 ## Rules applied
 

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `45f9646` |
-| Port | `ruby` @ `4395dab` |
-| Units with full (4-axis) parity | **9 / 17** |
-| Units with at least one open gap | **8 / 17** |
+| Port | `ruby` @ `6501e6b` |
+| Units with full (4-axis) parity | **8 / 17** |
+| Units with at least one open gap | **9 / 17** |
 | Runtime gate | `drive_ok=true`, 126/126 checks, covering the units the driver touches (see `test-parity.md` for what that leaves out) |
 
 Units follow `.reports/component-inventory.md`'s file map, which this report
@@ -18,7 +18,7 @@ its own wording oversteps that).
 | Unit | Verdict | Open gap |
 |---|---|---|
 | `gl-main.c` → `main.rb` | parity | — |
-| `gl-window.c`/`.ui` → `window.rb` | **gap** | `_("Unable to read user logs")` never shown — both system and user read-failure collapse to one message; the InfoBar distinction upstream makes is gone |
+| `gl-window.c`/`.ui` → `window.rb` | **gap** | A prior round claimed `_('Unable to read user logs')` is "never shown." This round traced `check_journal_storage` and found that claim is wrong: it shows standalone whenever storage is `:persistent`, the system journal is readable, and the user journal is not — a real, common case (no `systemd-journal` group membership). Upstream's own equivalent `switch` also overwrites the label when *both* fail (same single `GtkLabel`), so the port is a faithful 1:1 port of that logic, not a regression; corrected here. The gap that **is** real, found this round and not previously reported: `check_journal_access` adds an `elsif event_view_list.entries.empty?` branch with no upstream counterpart — upstream's warning switch is keyed purely on `storage_type`, never on whether the *current query* returned zero rows. Since this runs once at window construction against the default (unfiltered) view, the practical exposure is narrow (a persistent, readable journal with zero boots at all), but it is still a condition upstream does not warn on and the port does, and it was undocumented before this round. |
 | `gl-eventtoolbar.c`/`.ui` → `event_toolbar.rb` | parity | — (boot `Gio.Menu`, primary-menu sections, `title-menu-button flat`, `caption` all verified present) |
 | `gl-categorylist.c`/`.ui` → `category_list.rb` + `category.rb` | parity | 6/6 live rows; the 4 `visible=False` upstream rows have no port counterpart and need none — they are inert upstream too |
 | `gl-eventviewlist.c`/`.ui` → `event_view_list.rb` | **gap** | the vertical `Gtk.Separator` between sidebar and content is not built; `gl_event_view_list_set_sort_order` has no port counterpart at this layer (sort-order plumbing lives only at the window level, per the inventory) |
@@ -27,7 +27,7 @@ its own wording oversteps that).
 | `gl-searchpopover.c`/`.ui` → `search_popover.rb` | **gap (largest)** | 8 `Gtk.SpinButton`s + 8 `Gtk.Adjustment`s for hour/minute/second/AM-PM on both ends of a custom range: **0 built**. 2 typed-date `Gtk.Entry`s with the `22 January 2016 or 1/22/2016` parse path: **0 built**. `parameter_liststore`'s separator rows between field groups: not reproduced in the `Gtk::DropDown` replacement. No `closed` handler on the popover. Time-of-day precision in a log search tool is not a cosmetic miss — a user cannot narrow to "between 2pm and 3pm," only to whole days. |
 | `help-overlay.ui` → `shortcuts_window.rb` | parity | ported via `Gtk::Builder`, binding limitation noted in `FINDINGS.md`-equivalent comment in the file |
 | `gl-application.c` → `application.rb` | **gap** | no `--version` CLI option (no Ruby-side blocker found and documented — see rule below); About dialog fields are complete; `app.quit`/`<Primary>q` intentionally dropped (upstream still has it — this is a missing accelerator, not a non-issue) |
-| `gl-util.c` → `util.rb` | parity | all 6 time-format cases, uid, machine-id, journal-storage probing ported; `_("%s – %s")` (compressed-range format) has no caller anywhere in the port — built but unused |
+| `gl-util.c` → `util.rb` | **gap** | all 6 time-format cases, uid, machine-id, journal-storage probing ported, and `_("%s – %s")` is called (`Journal::Boot#display_name` → `event_toolbar.rb`'s boot label and boot menu items — a prior round's claim that it was "built but unused" was independently re-checked this round and is wrong; corrected here). The real gap: `util.rb`'s own comment admits `Time#strftime` is not locale-aware, so `%b` (month) and `%p` (AM/PM) always render in English regardless of the user's locale, even though the format *strings* are still passed through gettext. Every timestamp in the event list, event detail, and boot menu is affected in any non-English locale — this is a user-visible regression from upstream's locale-correct `g_date_time_format`, not a cosmetic nit, and was previously recorded only as a "deliberate difference" in a code comment, not in any parity report. |
 | `gl-journal.c` → `journal.rb` + `journal_entry.rb` | parity | — |
 | `gl-journal-model.c` → folded into `event_view_list.rb` | **gap, partially closed** | compressed entry groups are now built (grouping, header row, badge, CSS toggling); the neighbouring-group separator edge case from `gl_journal_model_add_header` is explicitly not replicated (component-inventory.md says so — "simplified"; see `accountability-ensurance.md`, this is exactly the pattern that skill exists to catch) |
 | `org.gnome.Logs.gschema.xml` | parity | — |

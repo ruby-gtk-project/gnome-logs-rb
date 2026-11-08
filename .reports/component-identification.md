@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `45f9646` (this fork has no `main`; `master` is the only non-`ruby` branch, and is what `origin/master`/`origin/HEAD` both point at) |
-| Port | `ruby` @ `4395dab` |
+| Port | `ruby` @ `6501e6b` |
 | Method | `component-identification` skill: `.ui` first, then the backing `.c`, then CSS and runtime construction |
 
 This is the identification half only — what exists on each side, per file, with
