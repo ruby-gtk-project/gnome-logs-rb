@@ -228,7 +228,7 @@ Watches `org.gnome.desktop.interface` `monospace-font-name` and regenerates a
 **Gaps**
 - ~~No `monospace-font-name` watcher~~ fixed this round: `Application#watch_monospace_font` watches `org.gnome.desktop.interface`'s `monospace-font-name` and regenerates a `.event-monospace` CSS provider from it via the new `Util.font_description_to_css`, ported from `pango_font_description_to_css`.
 - ~~No `sort-order` watcher~~ fixed this round, at the window level — see `gl-window.c`'s gap list above.
-- No `--version` option (the Ruby `Gio::Application#add_main_option_entries` binding takes a `GObjectIntrospection::Struct`, not the `Hash` an option-entry naturally is in Ruby, and no working call shape was found this round).
+- ~~No `--version` option~~ — `Gtk::Application#add_main_option` plus a `handle-local-options` handler now port `gl_application_handle_local_options`. The actual blocker in prior rounds was not the option-entry binding shape (`add_main_option` takes plain positional arguments and works): `build` returns the bare `Gtk::Application` (`app.tap { ... }`, kept so `build.run` still reads as one expression), and `GnomeLogs::Application.new.build.run` with no arguments therefore called `Gtk::Application#run` directly with an empty argv — it never saw the process's real command-line flags, so `handle-local-options` was unreachable and the option looked inert rather than erroring. `main.rb`/`exe/gnome-logs` now call `.run([$PROGRAM_NAME, *ARGV])` explicitly. Verified by running `exe/gnome-logs --version`/`-v` under `xvfb-run` (prints `Logs - Version 45.alpha`, exits 0, opens no window) and with `spec/gnome_logs/application_spec.rb`.
 - ~~About dialog: `designers`, `developers`, `translator-credits`, `copyright`, `issue-url` all missing~~ fixed this round, all five now set on the `Adwaita::AboutWindow`; `comments` stays as the one addition not upstream.
 - ~~`app.quit` / `<Primary>q`~~ dropped this round, action and accelerator both. `win.show-help-overlay` / `<Primary>question` stays — it is `GtkShortcutsWindow`'s own conventional action name, not an app-specific addition.
 
@@ -285,7 +285,7 @@ closed; the header-bar packing/CSS/menu-section gaps listed under
 ~~4. `win.view-boot` radio action and a `Gio::Menu` boot chooser with its `_("Boot")` section.~~
 ~~5. Sort-order plumbing: `sort-order` watcher → window → event view list.~~
 ~~6. `popover-activated-row` highlight and the detail popover's `closed` handler.~~
-7. `--version` command-line option — still open (see the `gl-application.c` gap note on the Ruby binding's option-entry shape). About dialog fields are done; `app.quit` is dropped.
+~~7. `--version` command-line option.~~ Built: `add_main_option` + `handle-local-options`, with `main.rb`/`exe/gnome-logs` passing real argv into `.run` so the handler is actually reached — see the `gl-application.c` gap note above for what the real blocker was. About dialog fields are done; `app.quit` is dropped.
 8. `style-hc.css`, `metainfo.xml`, `service` file.
 9. Search popover: spin-button time precision, date entries, revealers.
 ~~10. A spec suite — none exists.~~ expanded this round: `spec/gnome_logs/{query,category,journal_entry,catalog}_spec.rb` cover the pure-Ruby model layer (60 examples) alongside the existing `util_spec.rb`. The widget classes (window, event_view_list/row/detail, event_toolbar, search_popover, category_list) still have no specs and would need a headless GTK harness to get them, which this round did not build.

@@ -111,8 +111,6 @@ module GnomeLogs
     def check_journal_access
       if !journal.available?
         show_info(t('Unable to read system logs'))
-      elsif event_view_list.entries.empty?
-        show_info(t('No logs available'))
       else
         check_journal_storage
       end

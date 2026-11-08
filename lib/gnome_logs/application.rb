@@ -30,6 +30,14 @@ module GnomeLogs
 
     def build
       app.tap do |a|
+        a.add_main_option(
+          'version', 'v'.ord, :none, :none, t('Print version information and exit'), nil
+        )
+
+        a.signal_connect('handle-local-options') do |_, options|
+          on_handle_local_options(options)
+        end
+
         a.signal_connect('startup') do
           %w[new-window help about].each do |name|
             Gio::SimpleAction.new(name).tap do |action|
@@ -48,7 +56,23 @@ module GnomeLogs
       end
     end
 
-    def run = app.run([$PROGRAM_NAME, *ARGV])
+    # Ports gl_application_handle_local_options: --version/-v prints the
+    # version and exits (status 0) without the application ever activating a
+    # window; any other invocation falls through to normal handling (-1).
+    #
+    # `build` hands back the plain Gtk::Application (so the entry point reads
+    # as one widget-building expression, per house style), so this is reached
+    # through the real g_application_run argv parsing only if the caller
+    # passes $PROGRAM_NAME and ARGV into Gtk::Application#run itself, as
+    # main.rb and exe/gnome-logs do.
+    def on_handle_local_options(options)
+      if options.contains?('version')
+        puts "#{t('Logs')} - Version #{VERSION}"
+        0
+      else
+        -1
+      end
+    end
 
     def on_new_window = Window.new(application: app).present
 

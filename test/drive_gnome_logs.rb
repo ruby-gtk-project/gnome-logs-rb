@@ -472,11 +472,24 @@ GtkDriver.drive(DrivableApplication.new, shots: SHOTS, timeout: 300) do |d, app|
       fresh.window.destroy
     end
 
+    # check_journal_access's second branch is keyed purely on storage_type,
+    # exactly as upstream's switch is (an earlier round had it also looking
+    # at event_view_list.entries.empty?, which upstream's switch never
+    # does; that branch has been removed). GL_JOURNAL_STORAGE_NONE is
+    # stubbed here, rather than relying on this checkout's own machine
+    # having no journal, so the check is deterministic wherever it runs.
     GnomeLogs::Window.new(application: app.app).then do |fresh|
-      fresh.check_journal_access
-      d.check('a window that has never reloaded reports no logs available') { fresh.info_bar.revealed? }
-      d.check('with upstream\'s own sentence') { fresh.info_message_label.label == 'No logs available' }
-      d.shot('09-no-logs-warning', fresh.window)
+      original_storage_type = GnomeLogs::Util.method(:journal_storage_type)
+      GnomeLogs::Util.define_singleton_method(:journal_storage_type) { :none }
+
+      begin
+        fresh.check_journal_access
+        d.check('a window with no journal storage reports no logs available') { fresh.info_bar.revealed? }
+        d.check('with upstream\'s own sentence') { fresh.info_message_label.label == 'No logs available' }
+        d.shot('09-no-logs-warning', fresh.window)
+      ensure
+        GnomeLogs::Util.define_singleton_method(:journal_storage_type, original_storage_type)
+      end
 
       fresh.on_info_bar_response(Gtk::ResponseType::CLOSE)
       d.check('the Ignore button closes the bar') { !fresh.info_bar.revealed? }
